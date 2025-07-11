@@ -1,3 +1,6 @@
+## **🚀 WORKING IN PROGRESS, SORRY **
+## **🚀 WORKING IN PROGRESS, SORRY **
+
 # Little Agent Chatbot 🤖
 
 A lightweight local AI agent chatbot powered by Ollama, Qwen3, and Langchain with RAG capabilities.
