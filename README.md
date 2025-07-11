@@ -1,3 +1,8 @@
+---
+
+**[➡️ View the Live Interactive Project Page](https://ricard1406.github.io/Little_Agent_Chatbot)**
+
+---
 # **Little Agent Chatbot**
 
 A simple, local-first AI agent and RAG chatbot powered by Ollama, LangChain, and Gradio. This project is designed to be a lightweight, accessible starting point for anyone interested in exploring local Large Language Models (LLMs) and building their own conversational AI agents.
