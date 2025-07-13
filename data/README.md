@@ -1,1 +1,1 @@
-![print screen](DISCLAIMER.jpg)
+![print screen](disclaimer.jpg)
