@@ -46,6 +46,10 @@ A simple AI agent and RAG (Retrieval-Augmented Generation) project designed for 
    
    # Install embedding model
    ollama pull nomic-embed-text
+
+   # if you want get real-time weather
+   echo 'OPENWEATHER_API_KEY=your-open-weather-key' > .env
+   # https://openweathermap.org/ ; registration is for free.
    ```
 
 ## Usage
