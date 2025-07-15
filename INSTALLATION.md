@@ -59,9 +59,9 @@ The application will start a Gradio web interface where you can interact with th
 
 ## Model Performance
 
-- **qwen3:4b**: Better performance and response quality, requires more system resources
-- **qwen3:1.7b**: Lighter model suitable for low-budget hardware, faster inference
-- **Enhanced models**: Using more powerful models will generally provide faster and better results
+- **qwen3:4b**: it works on low-budget hardware.
+- **qwen3:1.7b**: minimum hardware request i tested.
+- **Enhanced models**: It is supposed using more powerful models will generally provide faster and better results
 
 Both models have been tested and confirmed to work on low-budget hardware configurations.
 
