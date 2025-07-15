@@ -57,6 +57,9 @@ A simple AI agent and RAG (Retrieval-Augmented Generation) project designed for 
 Run the application:
 ```bash
 python3 Little_Agent_Chatbot
+
+Open your browser and run local URL:
+http://127.0.0.1:7860
 ```
 
 The application will start a Gradio web interface where you can interact with the chatbot and upload documents for RAG functionality.
