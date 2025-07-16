@@ -1,9 +1,4 @@
-## **🚀 WORKING IN PROGRESS, SORRY **
-## **🚀 WORKING IN PROGRESS, SORRY **
-
-**[➡️ View the Live Interactive Project Page](https://ricard1406.github.io/Little_Agent_Chatbot)**
-
-# Little Agent Chatbot 🤖
+# 🤖 Little Agent Chatbot 🤖
 
 A lightweight local AI agent chatbot powered by Ollama, Qwen3, and Langchain with RAG capabilities.
 
@@ -50,7 +45,7 @@ Little Agent Chatbot is a simple yet powerful local AI assistant that runs entir
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/Little_Agent_Chatbot.git
+   git clone ricard1406/Little_Agent_Chatbot
    cd Little_Agent_Chatbot
    ```
 
