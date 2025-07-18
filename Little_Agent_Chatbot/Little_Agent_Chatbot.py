@@ -4,7 +4,7 @@ Built for learning and experimentation, it combines the power of open-source LLM
 retrieval-augmented generation (RAG) to create an intelligent chatbot that can work with your
 personal documents and provide real-time information.
 """
-VERSION="0.1.01"
+VERSION="0.1.02"
 import os
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.agents import tool
@@ -31,7 +31,11 @@ CHROMA_PATH = "chroma_db"
 # RAG documents folder
 DATA_PATH = "data/"
 PDF_FILENAME = "Candidates and Scores List - Test Data - compact.pdf"
-LLM = "qwen3:1.7b"  ### "qwen3:4b"
+
+LLM = "qwen3:1.7b"
+### LLM = "qwen3:4b"
+### LLM = "granite3.3:2b"
+### LLM = "llama3.2:3b"
 
 """
 Fetches current weather data for a given city from OpenWeatherMap.
@@ -518,7 +522,7 @@ demo = gr.ChatInterface(
 # `debug=True` provides more verbose output in your terminal.
 # `server_name="0.0.0.0"` makes it accessible from other devices on your local network (if firewalls allow).
 # `server_port` allows you to specify a port if 7860 is busy.
-print(f"\nLittle_Agent_Chatbot Version: {VERSION}")
+print(f"\nLittle_Agent_Chatbot Version: {VERSION} <> LLM {LLM}")
 demo.launch(share=False, debug=True)
 
 
