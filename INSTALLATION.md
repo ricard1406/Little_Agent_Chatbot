@@ -18,6 +18,12 @@ A simple AI agent and RAG (Retrieval-Augmented Generation) project designed for 
 - Ollama installed on your system
 - Sufficient disk space for language models
 
+## LLM tested for low-budget hardware
+- qwen3:1.7b
+- qwen3:4b
+- granite3.3:2b
+- llama3.2:3b
+
 ## Installation
 
 1. **Clone the repository**
@@ -40,9 +46,9 @@ A simple AI agent and RAG (Retrieval-Augmented Generation) project designed for 
 4. **Install and setup Ollama models**
    ```bash
    # Choose one of the following models based on your hardware:
-   ollama run qwen3:4b    # For better performance (requires more resources)
+   ollama pull qwen3:4b    # For better performance (requires more resources)
    # OR
-   ollama run qwen3:1.7b  # For lower resource usage
+   ollama pull qwen3:1.7b  # For lower resource usage
    
    # Install embedding model
    ollama pull nomic-embed-text
