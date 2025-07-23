@@ -4,13 +4,13 @@ Built for learning and experimentation, it combines the power of open-source LLM
 retrieval-augmented generation (RAG) to create an intelligent chatbot that can work with your
 personal documents and provide real-time information.
 """
-VERSION="0.1.02"
+VERSION="0.2.00"
 import os
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.agents import tool
 import datetime
 import requests
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
@@ -21,6 +21,7 @@ from langchain.agents import create_tool_calling_agent
 from langchain.agents import AgentExecutor
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import gradio as gr
+import sys
 
 from dotenv import load_dotenv
 # Load environment variables from .env file
@@ -299,7 +300,6 @@ def Create_vector_database_Chroma(chunks, embedding_function, persist_directory=
         embedding=embedding_function,
         persist_directory=persist_directory
     )
-    Collection.persist()
 
     return Collection
 
@@ -384,11 +384,75 @@ def Langchain_AgentExecutor(agent, tools):
 
     return agent_executor
 
+def run_agent(executor, user_input):
+    """Runs the agent executor with the given input."""
+    print("\nInvoking agent...")
+    print(f"Input: {user_input}")
+    response = executor.invoke({"input": user_input})
+    print("\nAgent Response:")
+    print(response['output'])
+
+#
+# Gradio Chat Functions
+#
+def clean_agent_response(agent_output_string):
+    """
+    Cleans the raw output from the LLM agent by removing the <think> block.
+    Args:
+        agent_output_string (str): The 'output' string from the agent's response dictionary.
+    Returns:
+        str: The cleaned, human-readable response.
+    """
+    # Check if the <think> block exists in the output
+    if "</think>" in agent_output_string:
+        # Split the string at the end of the think block and take the second part
+        clean_output = agent_output_string.split("</think>", 1)[1]
+    else:
+        # If there's no think block, return the original string
+        clean_output = agent_output_string
+
+    # Use strip() to remove any leading/trailing whitespace from the final output
+    return clean_output.strip()
+
+def chat_with_agent(message, history):
+    """
+    This function takes a user's message,
+    gets a response from the LangChain agent, extracts the
+    clean output, and returns it.
+    """
+    try:
+        # 1. Get the full dictionary response from your agent
+        #    (The exact method might be .invoke, .run, .call, etc.)
+        agent_response = agent_executor.invoke({"input": message})
+        # Extract the 'output' string
+        raw_output = agent_response['output']
+        # Clean it using the function we created
+        clean_output = clean_agent_response(raw_output)
+
+        # Return the clean text to be displayed in Gradio
+        return clean_output
+
+    except Exception as e:
+        # It's good practice to handle potential errors
+        print(f"An error occurred: {e}")
+        return "Sorry, I encountered an error while processing your request."
+
 ####################################################################################
+#
 #  Main Function
 #
 ####################################################################################
 if __name__ == "__main__":
+
+    # Check the command-line arguments provided when running the script
+    if len(sys.argv) != 2:
+        # If no argument or more than one argument is given, show usage instructions
+        print("Error: Invalid command.")
+        print("Usage: python3 Little_Agent_Chatbot.py [graph|text]")
+        sys.exit(1) # Exit the script with an error code
+
+    # Get the desired mode from the command-line argument
+    mode = sys.argv[1].lower()
 
     """
     Load PDF document based on
@@ -420,10 +484,7 @@ if __name__ == "__main__":
     # We need to make `get_local_document` use the pre-initialized `rag_chain`
     # One way is to make `get_local_document` a nested function or pass `rag_chain` to it.
     # For simplicity in Gradio, we'll ensure `get_local_data_RAG` calls the global `rag_chain`.
-    # (Note: In a more complex app, you might use classes or functools.partial to bind these.)
     _global_rag_chain = rag_chain  # Storing it globally or passing it explicitly
-
-
     def get_local_document(local_query):
         print(f"\nQuerying RAG chain with: {local_query}")
         response = _global_rag_chain.invoke(local_query)
@@ -437,59 +498,6 @@ if __name__ == "__main__":
 
     agent_executor = Langchain_AgentExecutor(agent, tools)
 
-    # Gradio Chat Function
-    # This function will be called every time the user sends a message.
-    # 'history' will contain the previous messages as a list of [user_message, bot_response] pairs.
-    # def chat_with_agent(message: str, history: List[List[str]]) -> str:
-
-# Import your agent and any other necessary libraries
-# from your_agent_setup_file import agent_executor # Example import
-
-def clean_agent_response(agent_output_string):
-    """
-    Cleans the raw output from the LLM agent by removing the <think> block.
-
-    Args:
-        agent_output_string (str): The 'output' string from the agent's response dictionary.
-
-    Returns:
-        str: The cleaned, human-readable response.
-    """
-    # Check if the <think> block exists in the output
-    if "</think>" in agent_output_string:
-        # Split the string at the end of the think block and take the second part
-        clean_output = agent_output_string.split("</think>", 1)[1]
-    else:
-        # If there's no think block, return the original string
-        clean_output = agent_output_string
-
-    # Use strip() to remove any leading/trailing whitespace from the final output
-    return clean_output.strip()
-
-def chat_with_agent(message, history):
-    """
-    This function takes a user's message and chat history,
-    gets a response from the LangChain agent, extracts the
-    clean output, and returns it.
-    """
-    try:
-        # 1. Get the full dictionary response from your agent
-        #    (The exact method might be .invoke, .run, .call, etc.)
-        agent_response = agent_executor.invoke({"input": message})
-
-        # Extract the 'output' string
-        raw_output = agent_response['output']
-
-        # Clean it using the function we created
-        clean_output = clean_agent_response(raw_output)
-
-        # Return the clean text to be displayed in Gradio
-        return clean_output
-
-    except Exception as e:
-        # It's good practice to handle potential errors
-        print(f"An error occurred: {e}")
-        return "Sorry, I encountered an error while processing your request."
 
 # Create the Gradio ChatInterface
 # The `fn` parameter takes your chat function.
@@ -499,31 +507,54 @@ def chat_with_agent(message, history):
 # `submit_btn` and `stop_btn` can be customized.
 # `examples` provide quick input buttons for users.
 
-demo = gr.ChatInterface(
-    fn=chat_with_agent,
-    type='messages',
-    title="Ollama Local LLM Agent Chatbot",
-    description="Chat with your local Ollama LLM and AI agents.",
-    examples=[
-        "What is the current date and time?",
-        "What is the weather in London, UK?",
-        "Calculate 15 * 3 + 7",
-        "Check if you find Dianne Bridgewater in our List of Candidates; if you find her write a document for her convocation in our main office, check the weather in her address if it's good the convocation date is in two days from current date, otherwise the convocation date is Monday of next week from current date"
-    ],
-    # chatbot=gr.Chatbot(height=400),  # Adjust chatbot display height
-    textbox=gr.Textbox(placeholder="Ask your agent a question...", scale=7),  # Input textbox
-    theme=gr.themes.Soft(),  # A relatively light and simple theme
-    # retry_btn=None, # Remove retry button for simplicity if not needed
-    # undo_btn=None, # Remove undo button for simplicity if not needed
-)
-
-# Launch the Gradio app
-# `share=False` means it won't create a public link (good for local testing).
-# `debug=True` provides more verbose output in your terminal.
-# `server_name="0.0.0.0"` makes it accessible from other devices on your local network (if firewalls allow).
-# `server_port` allows you to specify a port if 7860 is busy.
 print(f"\nLittle_Agent_Chatbot Version: {VERSION} <> LLM {LLM}")
-demo.launch(share=False, debug=True)
+
+if mode == "graph":
+    demo = gr.ChatInterface(
+        fn=chat_with_agent,
+        type='messages',
+        title="Ollama Local LLM Agent Chatbot",
+        description="Chat with your local Ollama LLM and AI agents.",
+        examples=[
+            "What is the current date and time?",
+            "What is the weather in London, UK?",
+            "Calculate 15 * 3 + 7",
+            "Check if you find Dianne Bridgewater in our List of Candidates; if you find her write a document for her convocation in our main office, check the weather in her address if it's good the convocation date is in two days from current date, otherwise the convocation date is Monday of next week from current date"
+        ],
+        # chatbot=gr.Chatbot(height=400),  # Adjust chatbot display height
+        textbox=gr.Textbox(placeholder="Ask your agent a question...", scale=7),  # Input textbox
+        theme=gr.themes.Soft(),  # A relatively light and simple theme
+        # retry_btn=None, # Remove retry button for simplicity if not needed
+        # undo_btn=None, # Remove undo button for simplicity if not needed
+    )
+    # Launch the Gradio app
+    # `share=False` means it won't create a public link (good for local testing).
+    # `debug=True` provides more verbose output in your terminal.
+    # `server_name="0.0.0.0"` makes it accessible from other devices on your local network (if firewalls allow).
+    # `server_port` allows you to specify a port if 7860 is busy.
+    demo.launch(share=False, debug=True)
+
+elif mode == "text":
+    print("Starting text-based interface...")
+    print(f"Little_Agent_Chatbot Version: {VERSION} <> LLM {LLM}")
+    print("Type your question and press Enter. Type 'exit' or 'quit' to end the chat.")
+    print("-" * 50)
+
+    while True:
+        try:
+            user_input = input("You: ")
+            if user_input.lower() in ["exit", "quit"]:
+                print("\nExiting chat. Goodbye!")
+                break
+            # Run the agent with the user's input
+            run_agent(agent_executor, user_input)
+
+        except (KeyboardInterrupt, EOFError):
+            # Handle Ctrl+C or Ctrl+D to exit gracefully
+            print("\n\nExiting chat. Goodbye!")
+            break
+
+
 
 
 
