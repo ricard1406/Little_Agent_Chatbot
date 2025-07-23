@@ -40,7 +40,7 @@ A simple AI agent and RAG (Retrieval-Augmented Generation) project designed for 
 
 3. **Install dependencies**
    ```bash
-   pip install langchain langchain-community langchain-core langchain-ollama chromadb sentence-transformers pypdf python-dotenv unstructured[pdf] tiktoken gradio
+   pip install langchain langchain-community langchain-core langchain-ollama langchain-chroma sentence-transformers pypdf python-dotenv unstructured[pdf] tiktoken gradio
    ```
 
 4. **Install and setup Ollama models**
