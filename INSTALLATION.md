@@ -62,7 +62,7 @@ A simple AI agent and RAG (Retrieval-Augmented Generation) project designed for 
 
 Run the application:
 ```bash
-python3 Little_Agent_Chatbot
+python3 Little_Agent_Chatbot [graph|text]
 
 Open your browser and run local URL:
 http://127.0.0.1:7860
