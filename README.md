@@ -1,6 +1,8 @@
 # 🤖 Little Agent Chatbot 🤖
 
-A lightweight local AI agent chatbot powered by Ollama, Qwen3, and Langchain with RAG capabilities.
+- A lightweight local AI agent chatbot powered by Ollama and Langchain with RAG capabilities.
+- LLM: qwen3:1.7b; qwen3:4b; granite3.3:2b; llama3.2:3b
+- Tested on low-budget hardware 8GB RAM.
 
 ## 🌟 Overview
 
@@ -9,11 +11,12 @@ Little Agent Chatbot is a simple yet powerful local AI assistant that runs entir
 ## ✨ Key Features
 
 - **🏠 Fully Local**: Runs completely on your machine - no data leaves your device
-- **💰 Budget-Friendly**: Works on low-resource hardware using efficient models (Qwen3 1.7B or 4B)
+- **💰 Budget-Friendly**: Works on low-resource hardware using efficient models.
 - **📚 RAG Integration**: Upload and chat with your PDF documents using ChromaDB and Nomic embeddings
 - **🌐 Real-Time Data**: Get live weather information and perform calculations
 - **🔧 Agent Framework**: Extensible agent system built with Langchain
 - **💻 Easy Interface**: Clean web interface powered by Gradio
+- **💻 Interface Options**: Graphic web interface or classic text interface.
 - **🔓 Open Source**: MIT licensed and fully customizable
 
 ## 🚀 Tech Stack
@@ -63,9 +66,7 @@ Little Agent Chatbot is a simple yet powerful local AI assistant that runs entir
 4. **Install Ollama models**
    ```bash
    # Choose one of these Qwen3 models based on your hardware:
-   ollama run qwen3:4b        # For better performance (requires more RAM)
-   # OR
-   ollama run qwen3:1.7b      # For lower resource usage
+   ollama pull qwen3:4b        # or LLM your choice
    
    # Install embedding model for RAG functionality
    ollama pull nomic-embed-text
@@ -73,7 +74,7 @@ Little Agent Chatbot is a simple yet powerful local AI assistant that runs entir
 
 5. **Run the application**
    ```bash
-   python main.py
+   python3 Little_Agent_Chatbot [graph|text]
    ```
 
 6. **Open your browser** and navigate to the provided local URL
