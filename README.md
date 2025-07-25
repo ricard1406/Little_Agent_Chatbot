@@ -50,6 +50,7 @@ Little Agent Chatbot is a simple yet powerful local AI assistant that runs entir
    ```bash
    git clone ricard1406/Little_Agent_Chatbot
    cd Little_Agent_Chatbot
+   (note: 'data' folder is required for RAG testing)
    ```
 
 2. **Create and activate virtual environment**
