@@ -10,3 +10,6 @@
 - qwen3:4b
 - granite3.3:2b
 - llama3.2:3b
+
+## 🔮 Future Deploy
+-  SQL database agent support
