@@ -13,3 +13,4 @@
 
 ## 🔮 Future Deploy
 -  SQL database agent support
+-  testing MariaDB support
