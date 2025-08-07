@@ -4,7 +4,7 @@ Built for learning and experimentation, it combines the power of open-source LLM
 retrieval-augmented generation (RAG) to create an intelligent chatbot that can work with your
 personal documents and provide real-time information.
 """
-VERSION="0.2.00"
+VERSION="0.3.00"
 import os
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.agents import tool
@@ -21,23 +21,30 @@ from langchain.agents import create_tool_calling_agent
 from langchain.agents import AgentExecutor
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import gradio as gr
+import mariadb
 import sys
+
 
 from dotenv import load_dotenv
 # Load environment variables from .env file
+# please create it if not present
+# echo 'YOUR_VARIABLE=your_value' > .env
 load_dotenv()
 
 # Chroma folder
+# please make data folder if not present to avoid errors
 CHROMA_PATH = "chroma_db"
 # RAG documents folder
 DATA_PATH = "data/"
 PDF_FILENAME = "Candidates and Scores List - Test Data - compact.pdf"
 
+# set here your LLM
 LLM = "qwen3:1.7b"
 ### LLM = "qwen3:4b"
 ### LLM = "granite3.3:2b"
-### LLM = "llama3.2:3b"
+### LLM ="llama3.2:3b"
 
+# - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - *
 """
 Fetches current weather data for a given city from OpenWeatherMap.
 
@@ -74,7 +81,6 @@ def get_weather_data(api_key, city_name):
         print(f"Error decoding JSON response: {json_err}")
     return None
 
-
 """
     Displays relevant weather information from the fetched data,
     and returns it as a single string.
@@ -107,13 +113,10 @@ def display_weather(weather_data):
             f"Humidity: {humidity}%\n"
             f"Wind Speed: {wind_speed} m/s"
         )
-        ######print(weather_string) # Still print for console output
         return weather_string
     else:
         error_message = "Could not retrieve weather data."
-        ######print(error_message) # Still print for console output
         return error_message
-
 
 def get_weather_tool(Location):
     # Get API key from environment variable
@@ -127,7 +130,7 @@ def get_weather_tool(Location):
     weather_info_string = display_weather(weather)
     return weather_info_string
 
-
+# - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - *
 """
     Performs basic arithmetic operations (ADD, SUB, MUL, DIV) on two numbers
     provided as strings.
@@ -167,11 +170,80 @@ def get_Calc(OPERATION, NUM_ONE, NUM_TWO):
     # Convert the numerical result back to a string
     return str(result)
 
+# - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - *
+def query_mariadb(query: str, db_config: dict) -> str:
+    """
+    Connects to a MariaDB database, executes a read-only query,
+    and returns the formatted result as a string.
+    Args:
+        query: The SQL SELECT query to execute.
+        db_config: A dictionary with connection details:
+                   {'user': 'your_user', 'password': 'your_password',
+                    'host': 'your_host', 'port': 3306, 'database': 'your_db'}
+    Returns:
+        A string containing the formatted query results, or an error message.
+    """
+    conn = None  # Initialize conn to None
+    try:
+        # Establish the database connection
+        conn = mariadb.connect(**db_config)
+        ###print("Connection successful.")
+
+        # Create a cursor object to interact with the database
+        cur = conn.cursor()
+
+        # Execute the provided query
+        cur.execute(query)
+
+        # Fetch all the rows from the query result
+        rows = cur.fetchall()
+
+        # Check if the query returned any results
+        if not rows:
+            return "Query executed successfully, but returned no results."
+
+        # Format the results into a single string
+        # Each row is a tuple, so we convert each item in the tuple to a string
+        # and join them with ", ". Then, we join all the rows with a newline.
+        formatted_results = "\n".join([", ".join(map(str, row)) for row in rows])
+
+        return formatted_results
+
+    except mariadb.Error as e:
+        # Handle potential database errors (e.g., connection failed, bad query)
+        print(f"Error connecting to or querying MariaDB: {e}")
+        return f"Error: {e}"
+
+    finally:
+        # Ensure the connection is always closed, even if errors occur
+        if conn:
+            conn.close()
+            print("Connection closed.")
+
+def Get_SQL(query: str) -> str:
+    # Please Configure your database connection details.
+
+    db_user = os.getenv('DB_USER')
+    db_password = os.getenv('DB_PASSWORD')
+    db_connection_config = {
+        'user': db_user,
+        'password': db_password,
+        'host': '127.0.0.1',  # Or your MariaDB server IP/hostname
+        'port': 3306,  # Default MariaDB port
+        'database': 'MYSTORE'  # The database you want to query
+    }
+
+    sql_query = query
+    ###print("\n--- Running Query ---")
+    response = query_mariadb(sql_query, db_connection_config)
+
+    return response
 
 #########################################################
 # AGENTS TOOL DECLARATION
 #########################################################
-
+# Note: the text included in each function, is the way we say to
+#       our LLM what this agent does and how use it .
 @tool
 def get_current_datetime(format: str = "%Y-%m-%d %H:%M:%S") -> str:
     """
@@ -209,7 +281,7 @@ def get_local_data_RAG(local_query: str) -> str:
     try:
         return get_local_document(local_query)
     except Exception as e:
-        return f"Error formatting weather: {e}"
+        return f"Error formatting RAG data: {e}"
 
 
 @tool
@@ -229,8 +301,27 @@ def get_arithmetic_operations(Operation: str, Number_1: str, Number_2: str) -> s
     try:
         return get_Calc(Operation, Number_1, Number_2)
     except Exception as e:
-        return f"Error formatting weather: {e}"
+        return f"Error formatting calc: {e}"
 
+@tool
+def get_SQL_response(SQL_statement: str) -> str:
+    """
+    Returns the result of SQL statement formatted as String.
+    Use this tool whenever the user asks for data from his warehouse .
+    Format the required data as SQL statement.
+    Allowed tables : FRUITS ; VEGGIE
+    Allowed items : ITEM, QUANTITY
+    Look at the examples below.
+    SELECT ITEM, QUANTITY FROM FRUITS
+    SELECT ITEM, QUANTITY FROM VEGGIE
+    """
+    try:
+        return Get_SQL(SQL_statement)
+    except Exception as e:
+        return f"Error formatting SQL: {e}"
+
+###############################################################################################
+#
 ###############################################################################################
 """
 LangChain's PyPDFLoader is a document loader designed to load and parse PDF documents into the LangChain Document format. 
@@ -303,12 +394,13 @@ def Create_vector_database_Chroma(chunks, embedding_function, persist_directory=
 
     return Collection
 
+###############################################################################################
 """
 list of tools, add here your own tool
 """
+tools = [get_current_datetime, get_weather, get_local_data_RAG, get_arithmetic_operations, get_SQL_response]
 
-tools = [get_current_datetime, get_weather, get_local_data_RAG, get_arithmetic_operations]
-
+###############################################################################################
 def build_rag_chain(vector_store, llm_model_name=LLM, context_window=2048):
 
     llm = ChatOllama(
@@ -474,6 +566,9 @@ if __name__ == "__main__":
     Chroma vector database store and query vector embeddings
     """
     vector_database = Create_vector_database_Chroma(chunks, embedding_function)
+    # to avoid reindex documents each time we test this software ,
+    # please comment line above and use this line down
+    ###vector_database = Chroma_vector_database(embedding_function)
 
     """
     The RAG (Retrieval-Augmented Generation) chain is a process that combines the capabilities of large language models (LLMs) 
@@ -519,13 +614,12 @@ if mode == "graph":
             "What is the current date and time?",
             "What is the weather in London, UK?",
             "Calculate 15 * 3 + 7",
-            "Check if you find Dianne Bridgewater in our List of Candidates; if you find her write a document for her convocation in our main office, check the weather in her address if it's good the convocation date is in two days from current date, otherwise the convocation date is Monday of next week from current date"
+            "Check if you find Dianne Bridgewater in our List of Candidates; if you find her write a document for her convocation in our main office, check the weather in her address if it's good the convocation date is in two days from current date, otherwise the convocation date is Monday of next week from current date",
+            "Do we have orange in our warehouse ?"
         ],
         # chatbot=gr.Chatbot(height=400),  # Adjust chatbot display height
         textbox=gr.Textbox(placeholder="Ask your agent a question...", scale=7),  # Input textbox
         theme=gr.themes.Soft(),  # A relatively light and simple theme
-        # retry_btn=None, # Remove retry button for simplicity if not needed
-        # undo_btn=None, # Remove undo button for simplicity if not needed
     )
     # Launch the Gradio app
     # `share=False` means it won't create a public link (good for local testing).
