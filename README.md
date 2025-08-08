@@ -1,7 +1,7 @@
 # 🤖 Little Agent Chatbot 🤖
 
 - A lightweight local AI agent chatbot powered by Ollama and Langchain with RAG capabilities.
-- LLM: qwen3:1.7b; qwen3:4b; granite3.3:2b; llama3.2:3b
+- Tested LLM: qwen3:1.7b; qwen3:4b; granite3.3:2b; llama3.2:3b
 - Tested on low-budget hardware 8GB RAM.
 - Included tools: real time weather, calculate, local documents RAG, local SQL database query.
 
