@@ -4,7 +4,7 @@ Built for learning and experimentation, it combines the power of open-source LLM
 retrieval-augmented generation (RAG) to create an intelligent chatbot that can work with your
 personal documents and provide real-time information.
 """
-VERSION="0.3.00"
+VERSION="0.3.01"
 import os
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.agents import tool
@@ -43,6 +43,8 @@ LLM = "qwen3:1.7b"
 ### LLM = "qwen3:4b"
 ### LLM = "granite3.3:2b"
 ### LLM ="llama3.2:3b"
+### LLM ="cogito:3b"
+
 
 # - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - *
 """
