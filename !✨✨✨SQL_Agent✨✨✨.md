@@ -2,7 +2,7 @@
 
 ## New Feature Overview
 
-**Little Agent Chatbot** now supports SQL database integration! Your chatbot can now retrieve data from local SQL databases, enabling powerful data-driven conversations and queries.
+**Little Agent Chatbot** now supports SQL database integration! Your chatbot can now retrieve data from local SQL databases, enabling powerful data-driven conversations and queries. Update SQL database tool available.
 
 ### ✅ Tested Database Support
 - **MariaDB** - Fully tested and supported
