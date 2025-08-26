@@ -85,6 +85,25 @@ Response: Yes, we have orange in the warehouse. The quantity available is 3 unit
 
 > **Note:** Notice how different LLMs approach the same query - some use broader SELECT statements while others optimize with WHERE clauses.
 
+
+**One more User Prompt:** *"Please increase by 2 apples quantity in our warehouse"*
+```
+> Entering new AgentExecutor chain...
+
+Invoking: `put_SQL_insert` with `{'SQL_statement': "UPDATE FRUITS SET QUANTITY = QUANTITY + 2 WHERE ITEM = 'APPLES';"}`
+Statement executed successfully.<think>
+Okay, let's see. The user said, "Please increase by 2 apples quantity in our warehouse." I need to figure out how to handle this.
+First, the user is referring to the warehouse's apple quantity. The available functions include put_SQL_insert, which is for updating SQL tables. The allowed tables are FRUITS and VEGGIE, and the allowed items are ITEM and QUANTITY.
+The user wants to increase the apples quantity by 2. So, the SQL statement should target the FRUITS table, set the QUANTITY to add 2 where ITEM is 'APPLES'. The function requires the SQL_statement parameter, which in this case would be the UPDATE statement.
+I need to make sure the syntax is correct. The example given for put_SQL_insert is UPDATE FRUITS SET QUANTITY=4 WHERE ITEM='ORANGE'; so similar structure. Therefore, the correct statement would be UPDATE FRUITS SET QUANTITY = QUANTITY + 2 WHERE ITEM = 'APPLES';. 
+I should check if the function allows adding 2 to the quantity. The description says it can perform arithmetic operations, so adding 2 is acceptable. The parameters require Operation, Number_1, Number_2, but here it's a single update, so using the SQL insert function is appropriate.
+So the tool call would be to put_SQL_insert with the SQL statement as mentioned. The response from the tool was successful, so I need to inform the user that the action was completed.
+</think>
+The quantity of apples in the warehouse has been successfully increased by 2. 
+If you need further assistance with updating other items or retrieving data, feel free to ask!
+> Finished chain.
+```
+
 ---
 
 ## Installation Guide
