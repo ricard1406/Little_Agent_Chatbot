@@ -4,7 +4,7 @@ Built for learning and experimentation, it combines the power of open-source LLM
 retrieval-augmented generation (RAG) to create an intelligent chatbot that can work with your
 personal documents and provide real-time information.
 """
-VERSION="0.3.01"
+VERSION="0.4.00"
 import os
 from langchain_community.document_loaders import PyPDFLoader
 from langchain.agents import tool
@@ -42,8 +42,8 @@ PDF_FILENAME = "Candidates and Scores List - Test Data - compact.pdf"
 LLM = "qwen3:1.7b"
 ### LLM = "qwen3:4b"
 ### LLM = "granite3.3:2b"
-### LLM ="llama3.2:3b"
-### LLM ="cogito:3b"
+### LLM = "llama3.2:3b"
+### LLM = "cogito:3b"
 
 
 # - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - *
@@ -236,8 +236,67 @@ def Get_SQL(query: str) -> str:
     }
 
     sql_query = query
-    ###print("\n--- Running Query ---")
+    print("\n--- Running Query ---")
     response = query_mariadb(sql_query, db_connection_config)
+
+    return response
+
+# - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - *
+def execute_mariadb(statement: str, db_config: dict) -> str:
+    """
+    Connects to MariaDB, executes a data modification statement (INSERT, UPDATE, DELETE),
+    and commits the changes.
+
+    Args:
+        statement: The SQL statement to execute (e.g., UPDATE, INSERT).
+        db_config: A dictionary with connection details.
+
+    Returns:
+        A string confirming the number of rows affected, or an error message.
+    """
+    conn = None
+    try:
+        # Establish the database connection
+        conn = mariadb.connect(**db_config)
+        cur = conn.cursor()
+
+        # Execute the provided statement
+        cur.execute(statement)
+
+        # For statements that change data, you MUST commit the transaction
+        conn.commit()
+
+        # cur.rowcount gives you the number of rows affected by the statement
+        affected_rows = cur.rowcount
+
+        return f"Statement executed successfully."
+
+    except mariadb.Error as e:
+        # If an error occurs, it's good practice to roll back any changes
+        if conn:
+            conn.rollback()
+        print(f"Error executing statement in MariaDB: {e}")
+        return f"Error: {e}"
+
+    finally:
+        # Ensure the connection is always closed
+        if conn:
+            conn.close()
+            print("Connection closed.")
+
+def Update_SQL(statement: str) -> str:
+    """A wrapper function to easily execute UPDATE, INSERT, or DELETE statements."""
+    db_user = os.getenv('DB_USER')
+    db_password = os.getenv('DB_PASSWORD')
+    db_connection_config = {
+        'user': db_user,
+        'password': db_password,
+        'host': '127.0.0.1',
+        'port': 3306,
+        'database': 'MYSTORE'
+    }
+    ###print("\n--- Executing Statement ---")
+    response = execute_mariadb(statement, db_connection_config)
 
     return response
 
@@ -322,6 +381,22 @@ def get_SQL_response(SQL_statement: str) -> str:
     except Exception as e:
         return f"Error formatting SQL: {e}"
 
+@tool
+def put_SQL_insert(SQL_statement: str) -> str:
+    """
+    Update some SQL table.
+    Use this tool whenever the user asks to update some data in his warehouse .
+    Format the required update as SQL statement.
+    Allowed tables : FRUITS ; VEGGIE
+    Allowed items : QUANTITY
+    Look at the example below.
+    UPDATE FRUITS SET QUANTITY=4 WHERE ITEM='ORANGE';
+    """
+    try:
+        return Update_SQL(SQL_statement)
+    except Exception as e:
+        return f"Error formatting SQL: {e}"
+
 ###############################################################################################
 #
 ###############################################################################################
@@ -400,7 +475,7 @@ def Create_vector_database_Chroma(chunks, embedding_function, persist_directory=
 """
 list of tools, add here your own tool
 """
-tools = [get_current_datetime, get_weather, get_local_data_RAG, get_arithmetic_operations, get_SQL_response]
+tools = [get_current_datetime, get_weather, get_local_data_RAG, get_arithmetic_operations, get_SQL_response, put_SQL_insert]
 
 ###############################################################################################
 def build_rag_chain(vector_store, llm_model_name=LLM, context_window=2048):
@@ -617,7 +692,8 @@ if mode == "graph":
             "What is the weather in London, UK?",
             "Calculate 15 * 3 + 7",
             "Check if you find Dianne Bridgewater in our List of Candidates; if you find her write a document for her convocation in our main office, check the weather in her address if it's good the convocation date is in two days from current date, otherwise the convocation date is Monday of next week from current date",
-            "Do we have orange in our warehouse ?"
+            "Do we have orange in our warehouse ?",
+            "Please increase by 2 apples quantity in our warehouse"
         ],
         # chatbot=gr.Chatbot(height=400),  # Adjust chatbot display height
         textbox=gr.Textbox(placeholder="Ask your agent a question...", scale=7),  # Input textbox
