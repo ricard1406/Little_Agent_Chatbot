@@ -1,3 +1,6 @@
+## Release 0.4
+-  New tool for Update SQL Database
+
 ## Release 0.3.01
 -  Tested LLM cogito:3b
 -  more testing on local database setup
