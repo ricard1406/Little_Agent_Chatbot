@@ -28,7 +28,9 @@ A simple AI agent and RAG (Retrieval-Augmented Generation) project designed for 
 
 1. **Clone the repository**
    ```bash
-   git clone ricard1406/Little_Agent_Chatbot
+   wget https://github.com/ricard1406/Little_Agent_Chatbot/archive/refs/heads/main.zip
+   unzip main.zip
+   mv Little_Agent_Chatbot-main Little_Agent_Chatbot
    cd Little_Agent_Chatbot
    (note: 'data' folder is required for RAG testing)
    ```
