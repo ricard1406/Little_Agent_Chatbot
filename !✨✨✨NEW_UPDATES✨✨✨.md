@@ -1,3 +1,7 @@
+## Working in progess:
+-  Migration to LangGraph due to troubles with older LangChain
+-  Support for dual provider: local Ollama LLM or remote Claude LLM
+   
 ## Release 0.4
 -  New tool for Update SQL Database
 
