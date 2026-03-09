@@ -1,4 +1,4 @@
-## Working in progess:
+## Release 0.5
 -  Migration to LangGraph due to troubles with older LangChain
 -  Support for dual provider: local Ollama LLM or remote Claude LLM
    
