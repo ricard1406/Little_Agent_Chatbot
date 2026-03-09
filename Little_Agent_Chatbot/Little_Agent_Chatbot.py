@@ -3,74 +3,104 @@ Little Agent Chatbot is a simple yet powerful local AI assistant that runs entir
 Built for learning and experimentation, it combines the power of open-source LLMs with advanced
 retrieval-augmented generation (RAG) to create an intelligent chatbot that can work with your
 personal documents and provide real-time information.
+
+Now supports dual provider mode:
+  - Local Ollama LLM  (default, no API key needed)
+  - Anthropic Claude  (requires ANTHROPIC_API_KEY in .env or --api-key flag)
+
+Updated to LangGraph
 """
-VERSION="0.4.00"
+VERSION = "0.5.0"
+
 import os
-from langchain_community.document_loaders import PyPDFLoader
-from langchain.agents import tool
+import sys
+import argparse
 import datetime
 import requests
+
+from dotenv import load_dotenv
+load_dotenv()
+
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_core.tools import tool
 from langchain_chroma import Chroma
 from langchain_ollama import OllamaEmbeddings
 from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
-from langchain import hub
-from langchain.agents import create_tool_calling_agent
-from langchain.agents import AgentExecutor
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+# ─── NEW: LangGraph replaces AgentExecutor + hub + create_tool_calling_agent ───
+from langgraph.prebuilt import create_react_agent
+# ────────────────────────────────────────────────────────────────────────────────
+
 import gradio as gr
 import mariadb
-import sys
 
 
-from dotenv import load_dotenv
-# Load environment variables from .env file
-# please create it if not present
-# echo 'YOUR_VARIABLE=your_value' > .env
-load_dotenv()
+# =================================================================
+# CONSTANTS
+# =================================================================
 
-# Chroma folder
-# please make data folder if not present to avoid errors
-CHROMA_PATH = "chroma_db"
-# RAG documents folder
-DATA_PATH = "data/"
-PDF_FILENAME = "Candidates and Scores List - Test Data - compact.pdf"
+CHROMA_PATH   = "chroma_db"
+DATA_PATH     = "data/"
+PDF_FILENAME  = "Candidates and Scores List - Test Data - compact.pdf"
 
-# set here your LLM
-LLM = "qwen3:1.7b"
-### LLM = "qwen3:4b"
-### LLM = "granite3.3:2b"
-### LLM = "llama3.2:3b"
-### LLM = "cogito:3b"
+DEFAULT_OLLAMA_MODEL  = "qwen3:1.7b"
+DEFAULT_CLAUDE_MODEL  = "claude-sonnet-4-5"
 
 
-# - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - *
-"""
-Fetches current weather data for a given city from OpenWeatherMap.
+# =================================================================
+# LLM FACTORY
+# =================================================================
 
-Args:
-    api_key (str): Your OpenWeatherMap API key.
-    city_name (str): The name of the city for which to retrieve weather data.
+def get_llm(provider: str, api_key: str = None, model: str = None, temperature: float = 0):
+    """
+    Return a LangChain chat model based on the chosen provider.
 
-Returns:
-    dict: A dictionary containing weather data if successful, None otherwise.
-"""
+    Providers
+    ---------
+    "ollama"    — local Ollama (no key needed)
+    "anthropic" — Anthropic Claude (requires api_key)
+    """
+    if provider == "anthropic":
+        if not api_key:
+            raise ValueError(
+                "An Anthropic API key is required for provider='anthropic'.\n"
+                "Add ANTHROPIC_API_KEY to your .env file or pass --api-key sk-ant-..."
+            )
+        try:
+            from langchain_anthropic import ChatAnthropic
+        except ImportError:
+            raise ImportError(
+                "langchain-anthropic is not installed.\n"
+                "Run:  pip install langchain-anthropic"
+            )
+        resolved_model = model or DEFAULT_CLAUDE_MODEL
+        print(f"[LLM Factory] Using Anthropic Claude — model: {resolved_model}")
+        return ChatAnthropic(
+            model=resolved_model,
+            temperature=temperature,
+            api_key=api_key
+        )
+
+    else:  # default: ollama
+        resolved_model = model or DEFAULT_OLLAMA_MODEL
+        print(f"[LLM Factory] Using local Ollama — model: {resolved_model}")
+        return ChatOllama(model=resolved_model, temperature=temperature)
+
+
+# =================================================================
+# WEATHER FUNCTIONS
+# =================================================================
+
 def get_weather_data(api_key, city_name):
-
     base_url = "http://api.openweathermap.org/data/2.5/weather"
-    params = {
-        "q": city_name,
-        "appid": api_key,
-        "units": "metric"  # You can change to "imperial" for Fahrenheit
-    }
-
+    params = {"q": city_name, "appid": api_key, "units": "metric"}
     try:
         response = requests.get(base_url, params=params)
-        response.raise_for_status()  # Raise an HTTPError for bad responses (4xx or 5xx)
-        weather_data = response.json()
-        return weather_data
+        response.raise_for_status()
+        return response.json()
     except requests.exceptions.HTTPError as http_err:
         print(f"HTTP error occurred: {http_err}")
     except requests.exceptions.ConnectionError as conn_err:
@@ -83,31 +113,17 @@ def get_weather_data(api_key, city_name):
         print(f"Error decoding JSON response: {json_err}")
     return None
 
-"""
-    Displays relevant weather information from the fetched data,
-    and returns it as a single string.
 
-    Args:
-        weather_data (dict): The dictionary containing weather data.
-
-    Returns:
-        str: A single string containing the formatted weather information,
-             or an error message if data could not be retrieved.
-"""
 def display_weather(weather_data):
-
     if weather_data:
-        city = weather_data.get("name")
-        country = weather_data.get("sys", {}).get("country")
-        main_weather = weather_data.get("weather", [])[0].get("description").capitalize() if weather_data.get(
-            "weather") else "N/A"
-        temperature = weather_data.get("main", {}).get("temp")
-        feels_like = weather_data.get("main", {}).get("feels_like")
-        humidity = weather_data.get("main", {}).get("humidity")
-        wind_speed = weather_data.get("wind", {}).get("speed")
-
-        # Combine all the data into a single string
-        weather_string = (
+        city         = weather_data.get("name")
+        country      = weather_data.get("sys", {}).get("country")
+        main_weather = weather_data.get("weather", [])[0].get("description").capitalize() if weather_data.get("weather") else "N/A"
+        temperature  = weather_data.get("main", {}).get("temp")
+        feels_like   = weather_data.get("main", {}).get("feels_like")
+        humidity     = weather_data.get("main", {}).get("humidity")
+        wind_speed   = weather_data.get("wind", {}).get("speed")
+        return (
             f"--- Weather in {city}, {country} ---\n"
             f"Description: {main_weather}\n"
             f"Temperature: {temperature}°C\n"
@@ -115,196 +131,107 @@ def display_weather(weather_data):
             f"Humidity: {humidity}%\n"
             f"Wind Speed: {wind_speed} m/s"
         )
-        return weather_string
-    else:
-        error_message = "Could not retrieve weather data."
-        return error_message
+    return "Could not retrieve weather data."
+
 
 def get_weather_tool(Location):
-    # Get API key from environment variable
     api_key = os.getenv('OPENWEATHER_API_KEY')
-    
-    # Check if the API key exists
     if not api_key:
-        raise ValueError("OpenWeatherMap API key not found. Please set the OPENWEATHER_API_KEY environment variable.")
-    
+        raise ValueError("OpenWeatherMap API key not found. Please set OPENWEATHER_API_KEY in your .env.")
     weather = get_weather_data(api_key, Location)
-    weather_info_string = display_weather(weather)
-    return weather_info_string
+    return display_weather(weather)
 
-# - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - *
-"""
-    Performs basic arithmetic operations (ADD, SUB, MUL, DIV) on two numbers
-    provided as strings.
 
-    Args:
-        OPERATION (str): The operation to perform ('ADD', 'SUB', 'MUL', 'DIV').
-        NUM_ONE (str): The first number as a string.
-        NUM_TWO (str): The second number as a string.
-
-    Returns:
-        str: The result of the operation as a string, or an error message as a string.
-"""
+# =================================================================
+# CALC FUNCTION
+# =================================================================
 
 def get_Calc(OPERATION, NUM_ONE, NUM_TWO):
-
     try:
-        # Convert string inputs to floating-point numbers for calculation
         num1_float = float(NUM_ONE)
         num2_float = float(NUM_TWO)
     except ValueError:
         return "Error: NUM_ONE and NUM_TWO must be valid numbers."
 
-    result = None
-    if OPERATION == "ADD":
-        result = num1_float + num2_float
-    elif OPERATION == "SUB":
-        result = num1_float - num2_float
-    elif OPERATION == "MUL":
-        result = num1_float * num2_float
+    if OPERATION == "ADD":   result = num1_float + num2_float
+    elif OPERATION == "SUB": result = num1_float - num2_float
+    elif OPERATION == "MUL": result = num1_float * num2_float
     elif OPERATION == "DIV":
         if num2_float == 0:
             return "Error: Division by zero is not allowed."
         result = num1_float / num2_float
     else:
         return "Error: Invalid operation. Please use 'ADD', 'SUB', 'MUL', or 'DIV'."
-
-    # Convert the numerical result back to a string
     return str(result)
 
-# - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - *
+
+# =================================================================
+# MARIADB FUNCTIONS
+# =================================================================
+
 def query_mariadb(query: str, db_config: dict) -> str:
-    """
-    Connects to a MariaDB database, executes a read-only query,
-    and returns the formatted result as a string.
-    Args:
-        query: The SQL SELECT query to execute.
-        db_config: A dictionary with connection details:
-                   {'user': 'your_user', 'password': 'your_password',
-                    'host': 'your_host', 'port': 3306, 'database': 'your_db'}
-    Returns:
-        A string containing the formatted query results, or an error message.
-    """
-    conn = None  # Initialize conn to None
-    try:
-        # Establish the database connection
-        conn = mariadb.connect(**db_config)
-        ###print("Connection successful.")
-
-        # Create a cursor object to interact with the database
-        cur = conn.cursor()
-
-        # Execute the provided query
-        cur.execute(query)
-
-        # Fetch all the rows from the query result
-        rows = cur.fetchall()
-
-        # Check if the query returned any results
-        if not rows:
-            return "Query executed successfully, but returned no results."
-
-        # Format the results into a single string
-        # Each row is a tuple, so we convert each item in the tuple to a string
-        # and join them with ", ". Then, we join all the rows with a newline.
-        formatted_results = "\n".join([", ".join(map(str, row)) for row in rows])
-
-        return formatted_results
-
-    except mariadb.Error as e:
-        # Handle potential database errors (e.g., connection failed, bad query)
-        print(f"Error connecting to or querying MariaDB: {e}")
-        return f"Error: {e}"
-
-    finally:
-        # Ensure the connection is always closed, even if errors occur
-        if conn:
-            conn.close()
-            print("Connection closed.")
-
-def Get_SQL(query: str) -> str:
-    # Please Configure your database connection details.
-
-    db_user = os.getenv('DB_USER')
-    db_password = os.getenv('DB_PASSWORD')
-    db_connection_config = {
-        'user': db_user,
-        'password': db_password,
-        'host': '127.0.0.1',  # Or your MariaDB server IP/hostname
-        'port': 3306,  # Default MariaDB port
-        'database': 'MYSTORE'  # The database you want to query
-    }
-
-    sql_query = query
-    print("\n--- Running Query ---")
-    response = query_mariadb(sql_query, db_connection_config)
-
-    return response
-
-# - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - * - *
-def execute_mariadb(statement: str, db_config: dict) -> str:
-    """
-    Connects to MariaDB, executes a data modification statement (INSERT, UPDATE, DELETE),
-    and commits the changes.
-
-    Args:
-        statement: The SQL statement to execute (e.g., UPDATE, INSERT).
-        db_config: A dictionary with connection details.
-
-    Returns:
-        A string confirming the number of rows affected, or an error message.
-    """
     conn = None
     try:
-        # Establish the database connection
         conn = mariadb.connect(**db_config)
-        cur = conn.cursor()
-
-        # Execute the provided statement
-        cur.execute(statement)
-
-        # For statements that change data, you MUST commit the transaction
-        conn.commit()
-
-        # cur.rowcount gives you the number of rows affected by the statement
-        affected_rows = cur.rowcount
-
-        return f"Statement executed successfully."
-
+        cur  = conn.cursor()
+        cur.execute(query)
+        rows = cur.fetchall()
+        if not rows:
+            return "Query executed successfully, but returned no results."
+        return "\n".join([", ".join(map(str, row)) for row in rows])
     except mariadb.Error as e:
-        # If an error occurs, it's good practice to roll back any changes
+        print(f"Error connecting to or querying MariaDB: {e}")
+        return f"Error: {e}"
+    finally:
+        if conn:
+            conn.close()
+
+
+def Get_SQL(query: str) -> str:
+    db_config = {
+        'user':     os.getenv('DB_USER'),
+        'password': os.getenv('DB_PASSWORD'),
+        'host':     '127.0.0.1',
+        'port':     3306,
+        'database': 'MYSTORE'
+    }
+    print("\n--- Running Query ---")
+    return query_mariadb(query, db_config)
+
+
+def execute_mariadb(statement: str, db_config: dict) -> str:
+    conn = None
+    try:
+        conn = mariadb.connect(**db_config)
+        cur  = conn.cursor()
+        cur.execute(statement)
+        conn.commit()
+        return "Statement executed successfully."
+    except mariadb.Error as e:
         if conn:
             conn.rollback()
         print(f"Error executing statement in MariaDB: {e}")
         return f"Error: {e}"
-
     finally:
-        # Ensure the connection is always closed
         if conn:
             conn.close()
-            print("Connection closed.")
+
 
 def Update_SQL(statement: str) -> str:
-    """A wrapper function to easily execute UPDATE, INSERT, or DELETE statements."""
-    db_user = os.getenv('DB_USER')
-    db_password = os.getenv('DB_PASSWORD')
-    db_connection_config = {
-        'user': db_user,
-        'password': db_password,
-        'host': '127.0.0.1',
-        'port': 3306,
+    db_config = {
+        'user':     os.getenv('DB_USER'),
+        'password': os.getenv('DB_PASSWORD'),
+        'host':     '127.0.0.1',
+        'port':     3306,
         'database': 'MYSTORE'
     }
-    ###print("\n--- Executing Statement ---")
-    response = execute_mariadb(statement, db_connection_config)
+    return execute_mariadb(statement, db_config)
 
-    return response
 
-#########################################################
-# AGENTS TOOL DECLARATION
-#########################################################
-# Note: the text included in each function, is the way we say to
-#       our LLM what this agent does and how use it .
+# =================================================================
+# TOOL DECLARATIONS
+# =================================================================
+
 @tool
 def get_current_datetime(format: str = "%Y-%m-%d %H:%M:%S") -> str:
     """
@@ -317,6 +244,7 @@ def get_current_datetime(format: str = "%Y-%m-%d %H:%M:%S") -> str:
         return datetime.datetime.now().strftime(format)
     except Exception as e:
         return f"Error formatting date/time: {e}"
+
 
 @tool
 def get_weather(location: str) -> str:
@@ -331,11 +259,12 @@ def get_weather(location: str) -> str:
     except Exception as e:
         return f"Error formatting weather: {e}"
 
+
 @tool
 def get_local_data_RAG(local_query: str) -> str:
     """
     Returns data from local documents, formatted as String.
-    Use this tool whenever the user asks for some data but you don't know anything about it, maybe local document can help you .
+    Use this tool whenever the user asks for some data but you don't know anything about it, maybe local document can help you.
     Format the required data as String.
     Example : get_local_data_RAG("when was born Mr. John Smith ?") . You get the birthday of Mr. John Smith.
     """
@@ -349,8 +278,7 @@ def get_local_data_RAG(local_query: str) -> str:
 def get_arithmetic_operations(Operation: str, Number_1: str, Number_2: str) -> str:
     """
     Returns the result of arithmetic operations, formatted as String.
-    Use this tool whenever the user asks for some arithmetic operations, this tool can help you .
-    Format the required data as String.
+    Use this tool whenever the user asks for some arithmetic operations, this tool can help you.
     Parameters : OPERATION, NUM-ONE, NUM-TWO
     OPERATION allowed are : ADD, SUB, MUL, DIV
     NUM-ONE , NUM-TWO are numbers
@@ -364,11 +292,12 @@ def get_arithmetic_operations(Operation: str, Number_1: str, Number_2: str) -> s
     except Exception as e:
         return f"Error formatting calc: {e}"
 
+
 @tool
 def get_SQL_response(SQL_statement: str) -> str:
     """
     Returns the result of SQL statement formatted as String.
-    Use this tool whenever the user asks for data from his warehouse .
+    Use this tool whenever the user asks for data from his warehouse.
     Format the required data as SQL statement.
     Allowed tables : FRUITS ; VEGGIE
     Allowed items : ITEM, QUANTITY
@@ -381,11 +310,12 @@ def get_SQL_response(SQL_statement: str) -> str:
     except Exception as e:
         return f"Error formatting SQL: {e}"
 
+
 @tool
 def put_SQL_insert(SQL_statement: str) -> str:
     """
     Update some SQL table.
-    Use this tool whenever the user asks to update some data in his warehouse .
+    Use this tool whenever the user asks to update some data in his warehouse.
     Format the required update as SQL statement.
     Allowed tables : FRUITS ; VEGGIE
     Allowed items : QUANTITY
@@ -397,28 +327,20 @@ def put_SQL_insert(SQL_statement: str) -> str:
     except Exception as e:
         return f"Error formatting SQL: {e}"
 
-###############################################################################################
-#
-###############################################################################################
-"""
-LangChain's PyPDFLoader is a document loader designed to load and parse PDF documents into the LangChain Document format. 
-It supports various configurations, such as handling password-protected files, extracting images, and defining extraction modes
-"""
+
+tools = [get_current_datetime, get_weather, get_local_data_RAG,
+         get_arithmetic_operations, get_SQL_response, put_SQL_insert]
+
+
+# =================================================================
+# DOCUMENT / RAG HELPERS
+# =================================================================
 
 def load_documents_from_PDF_File():
-
     pdf_path = os.path.join(DATA_PATH, PDF_FILENAME)
-    loader = PyPDFLoader(pdf_path)
-    documents = loader.load()
+    loader   = PyPDFLoader(pdf_path)
+    return loader.load()
 
-    return documents
-
-"""
-Document splitting is often a crucial preprocessing step for many applications. 
-It involves breaking down large texts into smaller, manageable chunks. 
-This process offers several benefits, such as ensuring consistent processing of varying document lengths, 
-overcoming input size limitations of models, and improving the quality of text representations used in retrieval systems
-"""
 
 def split_document_into_smaller_chunks(documents):
     text_splitter = RecursiveCharacterTextSplitter(
@@ -427,69 +349,28 @@ def split_document_into_smaller_chunks(documents):
         length_function=len,
         is_separator_regex=False,
     )
-    splits = text_splitter.split_documents(documents)
+    return text_splitter.split_documents(documents)
 
-    return splits
-
-"""
-Ollama embeddings refer to the process of generating vector representations of text using Ollama, 
-a platform that allows users to run various AI models locally. 
-These embeddings are numerical representations that capture the semantic meaning of text, 
-enabling models to understand nuances in language by transforming words or phrases into vectors in a high-dimensional space.
-"""
 
 def Ollama_embeddings(model_name="nomic-embed-text"):
+    return OllamaEmbeddings(model=model_name)
 
-    embeddings = OllamaEmbeddings(model=model_name)
-
-    return embeddings
-
-"""
-Chroma is an AI-native open-source vector database designed to store and query vector embeddings efficiently.
-It allows users to store text documents, embeddings, and metadata, and provides tools for querying these collections 
-to find semantically similar results
- """
 
 def Chroma_vector_database(embedding_function, persist_directory=CHROMA_PATH):
+    return Chroma(persist_directory=persist_directory, embedding_function=embedding_function)
 
-    vectorstore = Chroma(
-        persist_directory=persist_directory,
-        embedding_function=embedding_function
-    )
-
-    return vectorstore
-
-embedding_function = Ollama_embeddings()
 
 def Create_vector_database_Chroma(chunks, embedding_function, persist_directory=CHROMA_PATH):
-
-    Collection = Chroma.from_documents(
+    return Chroma.from_documents(
         documents=chunks,
         embedding=embedding_function,
         persist_directory=persist_directory
     )
 
-    return Collection
 
-###############################################################################################
-"""
-list of tools, add here your own tool
-"""
-tools = [get_current_datetime, get_weather, get_local_data_RAG, get_arithmetic_operations, get_SQL_response, put_SQL_insert]
-
-###############################################################################################
-def build_rag_chain(vector_store, llm_model_name=LLM, context_window=2048):
-
-    llm = ChatOllama(
-        model=llm_model_name,
-        temperature=0,
-        num_ctx=context_window
-    )
-
-    retriever = vector_store.as_retriever(
-        search_type="similarity",
-        search_kwargs={'k': 3}
-    )
+def build_rag_chain(vector_store, llm):
+    """Build the RAG chain with an injected LLM instance."""
+    retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={'k': 3})
 
     template = """Answer the question based ONLY on the following context:
 {context}
@@ -499,234 +380,180 @@ Question: {question}
     prompt = ChatPromptTemplate.from_template(template)
 
     rag_chain = (
-            {"context": retriever, "question": RunnablePassthrough()}
-            | prompt
-            | llm
-            | StrOutputParser()
+        {"context": retriever, "question": RunnablePassthrough()}
+        | prompt
+        | llm
+        | StrOutputParser()
     )
-
     return rag_chain
 
-vector_store = Chroma_vector_database(embedding_function)  # Assuming DB is already indexed
-rag_chain = build_rag_chain(vector_store)  # Call this later
 
-def query_rag(chain, question):
-    """Queries the RAG chain and prints the response."""
-    print("\nQuerying RAG chain...")
-    print(f"Question: {question}")
-    response = chain.invoke(question)
-    print("\nResponse:")
-    print(response)
+# =================================================================
+# AGENT HELPERS  ← updated for LangGraph
+# =================================================================
 
+def build_agent(llm, tools):
+    """
+    Build a LangGraph ReAct agent.
+    Replaces:  hub.pull() + create_tool_calling_agent() + AgentExecutor()
+    """
+    return create_react_agent(llm, tools)
 
-def Langchain_Hub_prompt(prompt_hub_name="hwchase17/openai-tools-agent"):
-
-    prompt = hub.pull(prompt_hub_name)
-
-    return prompt
-
-
-def Langchain_create_agent(llm, tools, prompt):
-
-    agent = create_tool_calling_agent(llm, tools, prompt)
-
-    return agent
-
-
-def Langchain_ChatOllama(model_name=LLM, temperature=0, context_window=2048):
-
-    llm = ChatOllama(
-        model=model_name,
-        temperature=temperature
-    )
-
-    return llm
-
-
-def Langchain_AgentExecutor(agent, tools):
-
-    agent_executor = AgentExecutor(
-        agent=agent,
-        tools=tools,
-        verbose=True
-    )
-
-    return agent_executor
 
 def run_agent(executor, user_input):
-    """Runs the agent executor with the given input."""
+    """Invoke the agent and print its final answer."""
     print("\nInvoking agent...")
     print(f"Input: {user_input}")
-    response = executor.invoke({"input": user_input})
+    # LangGraph returns {"messages": [...]};  last message is the AI reply
+    response     = executor.invoke({"messages": [("human", user_input)]})
+    final_answer = response["messages"][-1].content
     print("\nAgent Response:")
-    print(response['output'])
+    print(final_answer)
 
-#
-# Gradio Chat Functions
-#
+
+# =================================================================
+# GRADIO HELPERS
+# =================================================================
+
 def clean_agent_response(agent_output_string):
-    """
-    Cleans the raw output from the LLM agent by removing the <think> block.
-    Args:
-        agent_output_string (str): The 'output' string from the agent's response dictionary.
-    Returns:
-        str: The cleaned, human-readable response.
-    """
-    # Check if the <think> block exists in the output
     if "</think>" in agent_output_string:
-        # Split the string at the end of the think block and take the second part
         clean_output = agent_output_string.split("</think>", 1)[1]
     else:
-        # If there's no think block, return the original string
         clean_output = agent_output_string
-
-    # Use strip() to remove any leading/trailing whitespace from the final output
     return clean_output.strip()
 
+
 def chat_with_agent(message, history):
-    """
-    This function takes a user's message,
-    gets a response from the LangChain agent, extracts the
-    clean output, and returns it.
-    """
     try:
-        # 1. Get the full dictionary response from your agent
-        #    (The exact method might be .invoke, .run, .call, etc.)
-        agent_response = agent_executor.invoke({"input": message})
-        # Extract the 'output' string
-        raw_output = agent_response['output']
-        # Clean it using the function we created
-        clean_output = clean_agent_response(raw_output)
-
-        # Return the clean text to be displayed in Gradio
-        return clean_output
-
+        # LangGraph invocation — pass message inside "messages" key
+        response     = agent_executor.invoke({"messages": [("human", message)]})
+        raw_output   = response["messages"][-1].content
+        return clean_agent_response(raw_output)
     except Exception as e:
-        # It's good practice to handle potential errors
         print(f"An error occurred: {e}")
         return "Sorry, I encountered an error while processing your request."
 
-####################################################################################
-#
-#  Main Function
-#
-####################################################################################
+
+# =================================================================
+# CLI ARGUMENT PARSING
+# =================================================================
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Little Agent Chatbot — dual provider (Ollama / Claude)",
+        formatter_class=argparse.RawTextHelpFormatter
+    )
+
+    parser.add_argument(
+        "mode",
+        choices=["graph", "text"],
+        help="Interface mode:\n  graph — Gradio web UI\n  text  — terminal chat"
+    )
+    parser.add_argument(
+        "--provider",
+        choices=["ollama", "anthropic"],
+        default="ollama",
+        help=(
+            "LLM provider to use:\n"
+            "  ollama    — local Ollama model (default, no key needed)\n"
+            "  anthropic — Anthropic Claude   (requires --api-key or ANTHROPIC_API_KEY in .env)\n"
+        )
+    )
+    parser.add_argument(
+        "--api-key",
+        default=None,
+        help="API key for Anthropic (overrides ANTHROPIC_API_KEY env var)."
+    )
+    parser.add_argument(
+        "--model",
+        default=None,
+        help=(
+            f"Model name override.\n"
+            f"  Ollama default    : {DEFAULT_OLLAMA_MODEL}\n"
+            f"  Anthropic default : {DEFAULT_CLAUDE_MODEL}\n"
+        )
+    )
+
+    return parser.parse_args()
+
+
+# =================================================================
+# MAIN
+# =================================================================
+
 if __name__ == "__main__":
 
-    # Check the command-line arguments provided when running the script
-    if len(sys.argv) != 2:
-        # If no argument or more than one argument is given, show usage instructions
-        print("Error: Invalid command.")
-        print("Usage: python3 Little_Agent_Chatbot.py [graph|text]")
-        sys.exit(1) # Exit the script with an error code
+    args = parse_args()
 
-    # Get the desired mode from the command-line argument
-    mode = sys.argv[1].lower()
+    # Resolve API key: CLI flag > .env / environment variable
+    api_key = args.api_key or os.environ.get("ANTHROPIC_API_KEY")
 
-    """
-    Load PDF document based on
-    LangChain's PyPDFLoader
-    """
-    documents = load_documents_from_PDF_File()
+    # Resolve display model name for the banner
+    if args.provider == "anthropic":
+        display_model = args.model or DEFAULT_CLAUDE_MODEL
+    else:
+        display_model = args.model or DEFAULT_OLLAMA_MODEL
 
-    """
-    Document splitting into smaller, manageable chunks
-    """
-    chunks = split_document_into_smaller_chunks(documents)
+    # ── Build the shared LLM ──────────────────────────────────────
+    llm = get_llm(provider=args.provider, api_key=api_key, model=args.model, temperature=0)
 
-    """
-    Ollama embeddings generate vector representations
-    """
+    # ── Load & index documents ────────────────────────────────────
+    documents          = load_documents_from_PDF_File()
+    chunks             = split_document_into_smaller_chunks(documents)
     embedding_function = Ollama_embeddings()
 
-    """
-    Chroma vector database store and query vector embeddings
-    """
     vector_database = Create_vector_database_Chroma(chunks, embedding_function)
-    # to avoid reindex documents each time we test this software ,
-    # please comment line above and use this line down
+    # To avoid re-indexing each run, comment the line above and use:
     ###vector_database = Chroma_vector_database(embedding_function)
 
-    """
-    The RAG (Retrieval-Augmented Generation) chain is a process that combines the capabilities of large language models (LLMs) 
-    with external knowledge sources to generate more accurate and contextually relevant responses. 
-    """
-    rag_chain = build_rag_chain(vector_database, llm_model_name=LLM)
+    # ── Build RAG chain with the shared LLM ──────────────────────
+    rag_chain = build_rag_chain(vector_database, llm=llm)
 
-    # We need to make `get_local_document` use the pre-initialized `rag_chain`
-    # One way is to make `get_local_document` a nested function or pass `rag_chain` to it.
-    # For simplicity in Gradio, we'll ensure `get_local_data_RAG` calls the global `rag_chain`.
-    _global_rag_chain = rag_chain  # Storing it globally or passing it explicitly
+    # Global wrapper called by the @tool decorator
+    _global_rag_chain = rag_chain
     def get_local_document(local_query):
         print(f"\nQuerying RAG chain with: {local_query}")
-        response = _global_rag_chain.invoke(local_query)
-        return response
+        return _global_rag_chain.invoke(local_query)
 
-    ChatOllama = Langchain_ChatOllama(model_name=LLM)
+    # ── Build LangGraph agent ─────────────────────────────────────
+    agent_executor = build_agent(llm, tools)
 
-    Hub_prompt = Langchain_Hub_prompt()
+    # ── Banner ────────────────────────────────────────────────────
+    print(f"\n{'=' * 55}")
+    print(f"  Little Agent Chatbot  —  v{VERSION}")
+    print(f"  Provider : {args.provider.upper()}")
+    print(f"  Model    : {display_model}")
+    print(f"  Mode     : {args.mode.upper()}")
+    print(f"{'=' * 55}\n")
 
-    agent = Langchain_create_agent(ChatOllama, tools, Hub_prompt)
+    # ── Launch ────────────────────────────────────────────────────
+    if args.mode == "graph":
+        demo = gr.ChatInterface(
+            fn=chat_with_agent,
+            title="Little Agent Chatbot",
+            description="Chat with your AI agent. Supports weather, arithmetic, SQL warehouse queries, and local document search.",
+            examples=[
+                "What is the current date and time?",
+                "What is the weather in London, UK?",
+                "Calculate 15 * 3 + 7",
+                "Check if you find Dianne Bridgewater in our List of Candidates; if you find her write a document for her convocation in our main office, check the weather in her address if it's good the convocation date is in two days from current date, otherwise the convocation date is Monday of next week from current date",
+                "Do we have orange in our warehouse?",
+                "Please increase by 2 apples quantity in our warehouse"
+            ],
+            textbox=gr.Textbox(placeholder="Ask your agent a question...", scale=7),
+        )
+        demo.launch(share=False, debug=True)
 
-    agent_executor = Langchain_AgentExecutor(agent, tools)
-
-
-# Create the Gradio ChatInterface
-# The `fn` parameter takes your chat function.
-# `title` and `description` are optional.
-# `theme` can be adjusted for aesthetic preferences (e.g., "soft", "huggingface", "monochrome").
-# `live=True` makes the output update as you type, good for streaming (though our current demo doesn't stream).
-# `submit_btn` and `stop_btn` can be customized.
-# `examples` provide quick input buttons for users.
-
-print(f"\nLittle_Agent_Chatbot Version: {VERSION} <> LLM {LLM}")
-
-if mode == "graph":
-    demo = gr.ChatInterface(
-        fn=chat_with_agent,
-        type='messages',
-        title="Ollama Local LLM Agent Chatbot",
-        description="Chat with your local Ollama LLM and AI agents.",
-        examples=[
-            "What is the current date and time?",
-            "What is the weather in London, UK?",
-            "Calculate 15 * 3 + 7",
-            "Check if you find Dianne Bridgewater in our List of Candidates; if you find her write a document for her convocation in our main office, check the weather in her address if it's good the convocation date is in two days from current date, otherwise the convocation date is Monday of next week from current date",
-            "Do we have orange in our warehouse ?",
-            "Please increase by 2 apples quantity in our warehouse"
-        ],
-        # chatbot=gr.Chatbot(height=400),  # Adjust chatbot display height
-        textbox=gr.Textbox(placeholder="Ask your agent a question...", scale=7),  # Input textbox
-        theme=gr.themes.Soft(),  # A relatively light and simple theme
-    )
-    # Launch the Gradio app
-    # `share=False` means it won't create a public link (good for local testing).
-    # `debug=True` provides more verbose output in your terminal.
-    # `server_name="0.0.0.0"` makes it accessible from other devices on your local network (if firewalls allow).
-    # `server_port` allows you to specify a port if 7860 is busy.
-    demo.launch(share=False, debug=True)
-
-elif mode == "text":
-    print("Starting text-based interface...")
-    print(f"Little_Agent_Chatbot Version: {VERSION} <> LLM {LLM}")
-    print("Type your question and press Enter. Type 'exit' or 'quit' to end the chat.")
-    print("-" * 50)
-
-    while True:
-        try:
-            user_input = input("You: ")
-            if user_input.lower() in ["exit", "quit"]:
-                print("\nExiting chat. Goodbye!")
+    elif args.mode == "text":
+        print("Type your question and press Enter. Type 'exit' or 'quit' to end the chat.")
+        print("-" * 50)
+        while True:
+            try:
+                user_input = input("You: ")
+                if user_input.lower() in ["exit", "quit"]:
+                    print("\nExiting chat. Goodbye!")
+                    break
+                run_agent(agent_executor, user_input)
+            except (KeyboardInterrupt, EOFError):
+                print("\n\nExiting chat. Goodbye!")
                 break
-            # Run the agent with the user's input
-            run_agent(agent_executor, user_input)
-
-        except (KeyboardInterrupt, EOFError):
-            # Handle Ctrl+C or Ctrl+D to exit gracefully
-            print("\n\nExiting chat. Goodbye!")
-            break
-
-
-
-
-
