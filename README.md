@@ -1,18 +1,20 @@
 # 🤖 Little Agent Chatbot 🤖
 
-- A lightweight local AI agent chatbot powered by Ollama and Langchain with RAG capabilities.
+- A lightweight local AI agent chatbot powered by Ollama and LangChain/LangGraph with RAG capabilities.
 - Tested LLM: qwen3:1.7b; qwen3:4b; granite3.3:2b; llama3.2:3b; cogito:3b
+- Dual provider support: a) local Ollama LLM b) remote Claude LLM (API-key required) 
 - Tested on low-budget hardware 8GB RAM.
 - Included tools: real time weather, calculate, local documents RAG, local SQL database query and update.
 
 ## 🌟 Overview
 
-Little Agent Chatbot is a simple yet powerful local AI assistant that runs entirely on your machine. Built for learning and experimentation, it combines the power of open-source LLMs with advanced retrieval-augmented generation (RAG) to create an intelligent chatbot that can work with your personal documents and provide real-time information.
+Little Agent Chatbot is a simple yet powerful local AI assistant that runs entirely on your machine. Built for learning and experimentation, it combines the power of LLMs with advanced retrieval-augmented generation (RAG) to create an intelligent chatbot that can work with your personal documents and provide real-time information.
 
 ## ✨ Key Features
 
 - **🏠 Fully Local**: Runs completely on your machine - no data leaves your device
 - **💰 Budget-Friendly**: Works on low-resource hardware using efficient models.
+- **🏠 Dual provider**: a) local Ollama LLM b) remote Claude LLM (API-key required)
 - **📚 RAG Integration**: Upload and chat with your PDF documents using ChromaDB and Nomic embeddings
 - **🌐 Real-Time Data**: Get live weather information and perform calculations
 - **🔧 Agent Framework**: Extensible agent system built with Langchain
@@ -38,48 +40,6 @@ Little Agent Chatbot is a simple yet powerful local AI assistant that runs entir
 - **Educational**: Perfect for learning about AI agents and RAG systems
 - **Extensible**: Easy to modify and add new capabilities
 - **Lightweight**: Designed to work on modest hardware setups
-
-## 🛠️ Installation
-
-### Prerequisites
-- Python 3.8+
-- [Ollama](https://ollama.ai/) installed on your system
-
-### Setup Steps
-
-1. **Clone the repository**
-   ```bash
-   git clone ricard1406/Little_Agent_Chatbot
-   cd Little_Agent_Chatbot
-   (note: 'data' folder is required for RAG testing)
-   ```
-
-2. **Create and activate virtual environment**
-   ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate
-   ```
-
-3. **Install Python dependencies**
-   ```bash
-   pip install langchain langchain-community langchain-core langchain-ollama chromadb sentence-transformers pypdf python-dotenv unstructured[pdf] tiktoken gradio
-   ```
-
-4. **Install Ollama models**
-   ```bash
-   # Choose one of these Qwen3 models based on your hardware:
-   ollama pull qwen3:4b        # or LLM your choice
-   
-   # Install embedding model for RAG functionality
-   ollama pull nomic-embed-text
-   ```
-
-5. **Run the application**
-   ```bash
-   python3 Little_Agent_Chatbot [graph|text]
-   ```
-
-6. **Open your browser** and navigate to the provided local URL
 
 ## 📖 Usage
 
