@@ -1,94 +1,46 @@
-﻿# Little Agent Chatbot
+📦 Download these models before running the application:
+```bash
+ollama pull qwen3:4b            (not required when use Claude)
+ollama pull nomic-embed-text
+```
+📦 Installation
 
-A simple AI agent and RAG (Retrieval-Augmented Generation) project designed for learning purposes and as a foundation for building more complex AI applications.
-
-## Features
-
-- **Simple AI Agent**: Basic conversational AI capabilities using local language models
-- **RAG Implementation**: Retrieval-Augmented Generation for enhanced responses using document knowledge
-- **Local Model Support**: Works with Ollama-hosted models for privacy and offline usage
-- **Document Processing**: PDF document ingestion and processing capabilities
-- **Vector Database**: ChromaDB integration for efficient document retrieval
-- **Web Interface**: Gradio-based user interface for easy interaction
-- **Lightweight**: Tested on low-budget hardware configurations
-
-## Requirements
-
-- Python 3.8+
-- Ollama installed on your system
-- Sufficient disk space for language models
-
-## LLM tested for low-budget hardware
-- qwen3:1.7b
-- qwen3:4b
-- granite3.3:2b
-- llama3.2:3b
-
-## Installation
-
-1. **Clone the repository**
    ```bash
    wget https://github.com/ricard1406/Little_Agent_Chatbot/archive/refs/heads/main.zip
    unzip main.zip
    mv Little_Agent_Chatbot-main Little_Agent_Chatbot
    cd Little_Agent_Chatbot
-   (note: 'data' folder is required for RAG testing)
    ```
-
-2. **Create and activate virtual environment**
    ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+    python3 -m venv .venv
+    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+    pip install langchain langchain-community langchain-core langchain-ollama langchain-chroma sentence-transformers pypdf python-dotenv unstructured[pdf] tiktoken gradio
+ mariadb langchain-anthropic
    ```
-
-3. **Install dependencies**
+📦 Config your api_key
    ```bash
-   pip install langchain langchain-community langchain-core langchain-ollama langchain-chroma sentence-transformers pypdf python-dotenv unstructured[pdf] tiktoken gradio
+   [open your fav editor and set your openweather key, DB user and password, claude api_key]
+   cd Little_Agent_Chatbot
+   [vi] .env
+   OPENWEATHER_API_KEY=your_api_key_here
+   DB_USER=your_db_user
+   DB_PASSWORD=your_db_password
+   ANTHROPIC_API_KEY=your_api_key_here
    ```
+📦 Start app
+   Usage
 
-4. **Install and setup Ollama models**
+   Run the application:
    ```bash
-   # Choose one of the following models based on your hardware:
-   ollama pull qwen3:4b    # For better performance (requires more resources)
-   # OR
-   ollama pull qwen3:1.7b  # For lower resource usage
-   
-   # Install embedding model
-   ollama pull nomic-embed-text
+   python3 Little_Agent_Chatbot text                     (text interface Ollama LLM)
+   python3 Little_Agent_Chatbot graph                    (text interface Ollama LLM)
 
-   # if you want get real-time weather
-   echo 'OPENWEATHER_API_KEY=your-open-weather-key' > .env
-   # https://openweathermap.org/ ; registration is for free.
+   python3 Little_Agent_Chatbot text --provider anthropic    (text interface Calude LLM)
+   python3 Little_Agent_Chatbot graph --provider anthropic   (text interface Claude LLM)
+
+   When use graph interface open your browser and run local URL:
+   http://127.0.0.1:7860
    ```
-
-## Usage
-
-Run the application:
-```bash
-python3 Little_Agent_Chatbot [graph|text]
-
-Open your browser and run local URL:
-http://127.0.0.1:7860
-```
-
-The application will start a Gradio web interface where you can interact with the chatbot and upload documents for RAG functionality.
-
-## Model Performance
-
-- **qwen3:4b**: it works on low-budget hardware.
-- **qwen3:1.7b**: minimum hardware request i tested.
-- **Enhanced models**: It is supposed using more powerful models will generally provide faster and better results
-
-Both models have been tested and confirmed to work on low-budget hardware configurations.
-
-## Project Structure
-
-This project demonstrates:
-- Basic AI agent implementation
-- RAG system setup and configuration
-- Document processing and embedding
-- Vector database integration
-- Simple web interface creation
 
 ## Contributing
 
