@@ -525,7 +525,10 @@ if __name__ == "__main__":
     print(f"  Model    : {display_model}")
     print(f"  Mode     : {args.mode.upper()}")
     print(f"{'=' * 55}\n")
-
+    print("Example questions:")
+    print("  What's the weather in Sydney now?")
+    print("  Is Dianne in our local list of Candidates?")
+    print("  Do we have orange in our warehouse?")
     # ── Launch ────────────────────────────────────────────────────
     if args.mode == "graph":
         demo = gr.ChatInterface(
