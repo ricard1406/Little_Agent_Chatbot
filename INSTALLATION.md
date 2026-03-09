@@ -31,11 +31,11 @@ ollama pull nomic-embed-text
 
    Run the application:
    ```bash
-   python3 Little_Agent_Chatbot text                     (text interface Ollama LLM)
-   python3 Little_Agent_Chatbot graph                    (text interface Ollama LLM)
+   python3 Little_Agent_Chatbot.py text                     (text interface Ollama LLM)
+   python3 Little_Agent_Chatbot.py graph                    (text interface Ollama LLM)
 
-   python3 Little_Agent_Chatbot text --provider anthropic    (text interface Calude LLM)
-   python3 Little_Agent_Chatbot graph --provider anthropic   (text interface Claude LLM)
+   python3 Little_Agent_Chatbot.py text --provider anthropic    (text interface Calude LLM)
+   python3 Little_Agent_Chatbot.py graph --provider anthropic   (text interface Claude LLM)
 
    When use graph interface open your browser and run local URL:
    http://127.0.0.1:7860
