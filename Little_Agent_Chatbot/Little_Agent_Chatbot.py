@@ -10,7 +10,7 @@ Now supports dual provider mode:
 
 Updated to LangGraph
 """
-VERSION = "0.5.0"
+VERSION = "0.5.1"
 
 import os
 import sys
@@ -35,7 +35,10 @@ from langgraph.prebuilt import create_react_agent
 # ────────────────────────────────────────────────────────────────────────────────
 
 import gradio as gr
-import mariadb
+#----------------------------------------------#
+# IMPORTANT NOTE:
+# uncomment when use SQL mariadb function
+#import mariadb
 
 
 # =================================================================
