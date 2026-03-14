@@ -161,6 +161,18 @@ pip install mariadb
 # Add database credentials to environment file
 echo 'DB_USER=your_maria_db_user' >> .env
 echo 'DB_PASSWORD=your_maria_db_password' >> .env
+
+#----------------------------------------------#
+# IMPORTANT NOTE:
+# edit "Little_Agent_Chatbot.py" and at the top uncomment this line:
+#import mariadb
+
+#----------------------------------------------#
+If get errors installing mariadb, maybe try:
+sudo apt install libmariadb-dev python3-dev build-essential pkg-config
+pip install wheel
+
+#----------------------------------------------#
 ```
 
 ---
