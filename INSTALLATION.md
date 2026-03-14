@@ -14,7 +14,7 @@ ollama pull nomic-embed-text
    ```bash
    python3 -m venv .venv
    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   pip install langchain langchain-community langchain-core langchain-ollama langchain-chroma sentence-transformers pypdf python-dotenv unstructured[pdf] tiktoken gradio mariadb langchain-anthropic
+   pip install langchain langchain-community langchain-core langchain-ollama langchain-chroma sentence-transformers pypdf python-dotenv unstructured[pdf] tiktoken gradio langchain-anthropic
    ```
 📦 Config your api_key
    ```bash
